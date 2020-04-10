@@ -8,6 +8,7 @@ DWORD ThreadId;
 SERVICE_STATUS SelfStatus;
 SERVICE_STATUS_HANDLE SelfStatusHandle;
 TCHAR MODULE_FILE_NAME[MAX_PATH];
+TCHAR MODULE_WDIR[MAX_PATH];
 CHAR MODULE_DIR[MAX_PATH];
 
 BOOL IsInstalledService() {
@@ -126,10 +127,28 @@ void WINAPI ServiceMain(int argc, char* param[]) {
 	SelfStatus.dwCurrentState = SERVICE_RUNNING;
 	SetServiceStatus(SelfStatusHandle, &SelfStatus);
 
+	TCHAR command[100] = TEXT("elasticsearch.bat");
+	LogWriteLn("run elasticsearch.bat");
+	STARTUPINFO si;
+	PROCESS_INFORMATION pi;
+	si.dwXSize = sizeof(STARTUPINFO);
+	CreateProcess(
+		NULL,
+		command,
+		NULL,
+		NULL,
+		FALSE,
+		NULL,
+		NULL,
+		MODULE_WDIR,
+		&si,
+		&pi);
+	LogWriteLn("service start.", pi.dwProcessId);
 	while (SelfStatus.dwCurrentState == SERVICE_RUNNING) {
-		LogWriteLn("tick.");
 		Sleep(2000);
 	}
+
+	TerminateProcess(pi.hProcess, 0);
 
 	LogWriteLn("service stoped");
 	SelfStatus.dwCurrentState = SERVICE_STOPPED;
@@ -140,6 +159,10 @@ INT WINAPI WinMain(HINSTANCE self, HINSTANCE prev, LPSTR param, INT visible) {
 	GetModuleFileName(NULL, MODULE_FILE_NAME, MAX_PATH);
 	std::wstring mfn(MODULE_FILE_NAME);
 	size_t end = mfn.rfind('\\');
+	for (size_t i = 0; i != end; ++i) {
+		MODULE_WDIR[i] = MODULE_FILE_NAME[i];
+	}
+	MODULE_WDIR[end] = 0;
 	WideCharToMultiByte(CP_ACP, 0, MODULE_FILE_NAME, end, MODULE_DIR, MAX_PATH, NULL, NULL);
 	ThreadId = GetCurrentThreadId();
 	LogWriteLn("service win main:", ThreadId);
